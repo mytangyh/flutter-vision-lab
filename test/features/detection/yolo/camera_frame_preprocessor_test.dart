@@ -1,12 +1,13 @@
 import 'dart:typed_data';
 
+import 'package:aicamera/features/detection/domain/camera_frame.dart';
 import 'package:aicamera/features/detection/yolo/camera_frame_preprocessor.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('converts BGRA pixels to normalized NCHW RGB with letterbox padding',
       () {
-    final frame = CameraFrameData(
+    final frame = CameraFrame(
       width: 2,
       height: 1,
       format: 'bgra8888',
@@ -28,6 +29,7 @@ void main() {
       ],
       rotationDegrees: 0,
       mirrorHorizontally: false,
+      capturedAt: DateTime(2026),
     );
 
     final prepared = prepareYoloFrame(frame, modelSize: 2);
