@@ -1,0 +1,1 @@
+"""AICAMERA cloud recognition proxy."""

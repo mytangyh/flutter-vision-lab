@@ -1,30 +1,46 @@
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:aicamera/features/detection/domain/camera_frame.dart';
 import 'package:aicamera/features/detection/domain/detection.dart';
+import 'package:aicamera/features/detection/domain/detection_engine.dart';
 import 'package:aicamera/features/detection/yolo/camera_frame_preprocessor.dart';
 import 'package:aicamera/features/detection/yolo/yolo_postprocessor.dart';
-import 'package:camera/camera.dart';
-import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 
-class YoloDetector {
-  YoloDetector._({
-    required Interpreter interpreter,
-    required IsolateInterpreter isolateInterpreter,
-  })  : _interpreter = interpreter,
-        _isolateInterpreter = isolateInterpreter;
+class YoloDetector implements DetectionEngine {
+  YoloDetector();
 
   static const modelAsset = 'assets/models/yolov8n_320.tflite';
   static const modelSize = 320;
   static const outputChannels = 84;
   static const predictionCount = 2100;
 
-  final Interpreter _interpreter;
-  final IsolateInterpreter _isolateInterpreter;
+  Interpreter? _interpreter;
+  IsolateInterpreter? _isolateInterpreter;
+  @override
   double confidenceThreshold = 0.35;
 
-  static Future<YoloDetector> load() async {
+  @override
+  String get id => 'yolo_tflite';
+
+  @override
+  String get displayName => 'YOLO · TFLite';
+
+  @override
+  String get modelName => 'YOLOv8n 320 FP32';
+
+  @override
+  String get backendName => 'TFLite 2.11 · CPU';
+
+  @override
+  int get threadCount => 4;
+
+  @override
+  Future<void> initialize() async {
+    if (_interpreter != null) {
+      return;
+    }
     final options = InterpreterOptions()..threads = 4;
     final interpreter = await Interpreter.fromAsset(
       modelAsset,
@@ -46,19 +62,19 @@ class YoloDetector {
       address: interpreter.address,
       debugName: 'YoloV8Inference',
     );
-    return YoloDetector._(
-      interpreter: interpreter,
-      isolateInterpreter: isolateInterpreter,
-    );
+    _interpreter = interpreter;
+    _isolateInterpreter = isolateInterpreter;
   }
 
+  @override
   Future<DetectionResult> detect({
-    required CameraImage image,
-    required CameraDescription camera,
-    required DeviceOrientation orientation,
+    required CameraFrame frame,
   }) async {
+    final isolateInterpreter = _isolateInterpreter;
+    if (isolateInterpreter == null) {
+      throw StateError('YOLO TFLite engine is not initialized.');
+    }
     final preprocessWatch = Stopwatch()..start();
-    final frame = _snapshotFrame(image, camera, orientation);
     final prepared = await Isolate.run(
       () => prepareYoloFrame(frame, modelSize: modelSize),
       debugName: 'YoloV8Preprocess',
@@ -67,7 +83,7 @@ class YoloDetector {
 
     final output = Float32List(outputChannels * predictionCount);
     final inferenceWatch = Stopwatch()..start();
-    await _isolateInterpreter.run(prepared.input.buffer, output.buffer);
+    await isolateInterpreter.run(prepared.input.buffer, output.buffer);
     inferenceWatch.stop();
 
     final postprocessWatch = Stopwatch()..start();
@@ -85,57 +101,19 @@ class YoloDetector {
       preprocessDuration: preprocessWatch.elapsed,
       inferenceDuration: inferenceWatch.elapsed,
       postprocessDuration: postprocessWatch.elapsed,
+      frameCapturedAt: frame.capturedAt,
     );
   }
 
+  @override
   Future<void> close() async {
-    await _isolateInterpreter.close();
-    _interpreter.close();
-  }
-
-  static CameraFrameData _snapshotFrame(
-    CameraImage image,
-    CameraDescription camera,
-    DeviceOrientation orientation,
-  ) {
-    return CameraFrameData(
-      width: image.width,
-      height: image.height,
-      format: image.format.group.name,
-      planes: image.planes
-          .map(
-            (plane) => FramePlaneData(
-              bytes: Uint8List.fromList(plane.bytes),
-              bytesPerRow: plane.bytesPerRow,
-              bytesPerPixel: plane.bytesPerPixel ?? 1,
-            ),
-          )
-          .toList(growable: false),
-      rotationDegrees: _rotationDegrees(
-        camera.sensorOrientation,
-        orientation,
-        camera.lensDirection,
-      ),
-      mirrorHorizontally: camera.lensDirection == CameraLensDirection.front,
-    );
-  }
-
-  static int _rotationDegrees(
-    int sensorOrientation,
-    DeviceOrientation orientation,
-    CameraLensDirection lensDirection,
-  ) {
-    final deviceDegrees = switch (orientation) {
-      DeviceOrientation.portraitUp => 0,
-      DeviceOrientation.landscapeLeft => 90,
-      DeviceOrientation.portraitDown => 180,
-      DeviceOrientation.landscapeRight => 270,
-    };
-
-    if (lensDirection == CameraLensDirection.front) {
-      return (sensorOrientation + deviceDegrees) % 360;
+    final isolateInterpreter = _isolateInterpreter;
+    _isolateInterpreter = null;
+    if (isolateInterpreter != null) {
+      await isolateInterpreter.close();
     }
-    return (sensorOrientation - deviceDegrees + 360) % 360;
+    _interpreter?.close();
+    _interpreter = null;
   }
 
   static bool _sameShape(List<int> actual, List<int> expected) {

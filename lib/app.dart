@@ -1,4 +1,4 @@
-import 'package:aicamera/features/camera/camera_detection_page.dart';
+import 'package:aicamera/features/home/research_home_page.dart';
 import 'package:flutter/material.dart';
 
 class AiCameraApp extends StatelessWidget {
@@ -20,7 +20,7 @@ class AiCameraApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.black,
         useMaterial3: true,
       ),
-      home: home ?? const CameraDetectionPage(),
+      home: home ?? const ResearchHomePage(),
     );
   }
 }

@@ -1,4 +1,4 @@
-# YOLOv8n 320 TFLite
+# YOLOv8n 320 · TFLite / MNN
 
 ## 模型信息
 
@@ -9,6 +9,21 @@
 - 输出：Float32 `[1, 84, 2100]`；框为相对模型输入归一化的 `cxcywh`
 - 类别：COCO 80 类
 - SHA-256：`f8ae952090cd2c016304b9b2abf953aa03f3dd1368199ff773b9377b3be35443`
+
+MNN 对照模型：
+
+- 文件：`yolov8n_320.mnn`
+- 转换器：MNNConvert 3.5.0
+- 来源：上述同一份 `yolov8n_320.tflite`
+- 输入/输出：与 TFLite 模型保持 `[1,3,320,320]` /
+  `[1,84,2100]` 的 Float32 契约
+- SHA-256：`a0c7bae8e385e5bebbc142e49ad24454bcf676013ebf13b0b248159a7ecda682`
+
+可复现转换：
+
+```bash
+tools/convert_mnn_model.sh
+```
 
 导出设置：
 

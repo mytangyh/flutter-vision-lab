@@ -1,38 +1,9 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:aicamera/features/detection/domain/camera_frame.dart';
 import 'package:aicamera/features/detection/yolo/yolo_postprocessor.dart';
 import 'package:image/image.dart' as img;
-
-class FramePlaneData {
-  const FramePlaneData({
-    required this.bytes,
-    required this.bytesPerRow,
-    required this.bytesPerPixel,
-  });
-
-  final Uint8List bytes;
-  final int bytesPerRow;
-  final int bytesPerPixel;
-}
-
-class CameraFrameData {
-  const CameraFrameData({
-    required this.width,
-    required this.height,
-    required this.format,
-    required this.planes,
-    required this.rotationDegrees,
-    required this.mirrorHorizontally,
-  });
-
-  final int width;
-  final int height;
-  final String format;
-  final List<FramePlaneData> planes;
-  final int rotationDegrees;
-  final bool mirrorHorizontally;
-}
 
 class PreparedYoloFrame {
   const PreparedYoloFrame({
@@ -45,17 +16,10 @@ class PreparedYoloFrame {
 }
 
 PreparedYoloFrame prepareYoloFrame(
-  CameraFrameData frame, {
+  CameraFrame frame, {
   int modelSize = 320,
 }) {
-  var source = _decodeCameraFrame(frame);
-
-  if (frame.rotationDegrees != 0) {
-    source = img.copyRotate(source, angle: frame.rotationDegrees);
-  }
-  if (frame.mirrorHorizontally) {
-    img.flipHorizontal(source);
-  }
+  final source = decodeOrientedCameraFrame(frame);
 
   final scale = math.min(
     modelSize / source.width,
@@ -104,7 +68,18 @@ PreparedYoloFrame prepareYoloFrame(
   );
 }
 
-img.Image _decodeCameraFrame(CameraFrameData frame) {
+img.Image decodeOrientedCameraFrame(CameraFrame frame) {
+  var source = _decodeCameraFrame(frame);
+  if (frame.rotationDegrees != 0) {
+    source = img.copyRotate(source, angle: frame.rotationDegrees);
+  }
+  if (frame.mirrorHorizontally) {
+    source = img.flipHorizontal(source);
+  }
+  return source;
+}
+
+img.Image _decodeCameraFrame(CameraFrame frame) {
   switch (frame.format) {
     case 'bgra8888':
       return _decodeBgra(frame);
@@ -123,7 +98,7 @@ img.Image _decodeCameraFrame(CameraFrameData frame) {
   }
 }
 
-img.Image _decodeBgra(CameraFrameData frame) {
+img.Image _decodeBgra(CameraFrame frame) {
   final plane = frame.planes.first;
   final output = img.Image(width: frame.width, height: frame.height);
 
@@ -143,7 +118,7 @@ img.Image _decodeBgra(CameraFrameData frame) {
   return output;
 }
 
-img.Image _decodeNv21(CameraFrameData frame) {
+img.Image _decodeNv21(CameraFrame frame) {
   final plane = frame.planes.first;
   final output = img.Image(width: frame.width, height: frame.height);
   final yPlaneSize = plane.bytesPerRow * frame.height;
@@ -160,7 +135,7 @@ img.Image _decodeNv21(CameraFrameData frame) {
   return output;
 }
 
-img.Image _decodeYuv420(CameraFrameData frame) {
+img.Image _decodeYuv420(CameraFrame frame) {
   if (frame.planes.length < 3) {
     throw const FormatException('YUV420 frame requires three planes.');
   }

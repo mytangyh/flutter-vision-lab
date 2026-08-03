@@ -2,9 +2,10 @@ import 'package:aicamera/features/detection/domain/detection.dart';
 import 'package:flutter/material.dart';
 
 class DetectionOverlay extends CustomPainter {
-  const DetectionOverlay(this.detections);
+  const DetectionOverlay(this.detections, {required this.sourceName});
 
   final List<Detection> detections;
+  final String sourceName;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -49,7 +50,7 @@ class DetectionOverlay extends CustomPainter {
     )..layout(maxWidth: 180);
     final subtitle = TextPainter(
       text: TextSpan(
-        text: 'YOLO 端侧识别 · ${detection.label}',
+        text: _subtitle(detection),
         style: const TextStyle(
           color: Color(0xFFC9D2DF),
           fontSize: 10,
@@ -59,10 +60,28 @@ class DetectionOverlay extends CustomPainter {
       maxLines: 1,
       ellipsis: '…',
     )..layout(maxWidth: 180);
+    final description = detection.description == null
+        ? null
+        : (TextPainter(
+            text: TextSpan(
+              text: detection.description,
+              style: const TextStyle(
+                color: Color(0xFFE4E8EF),
+                fontSize: 10,
+              ),
+            ),
+            textDirection: TextDirection.ltr,
+            maxLines: 1,
+            ellipsis: '…',
+          )..layout(maxWidth: 220));
 
-    final bubbleWidth =
-        (title.width > subtitle.width ? title.width : subtitle.width) + 20;
-    const bubbleHeight = 48.0;
+    var contentWidth =
+        title.width > subtitle.width ? title.width : subtitle.width;
+    if (description != null && description.width > contentWidth) {
+      contentWidth = description.width;
+    }
+    final bubbleWidth = contentWidth + 20;
+    final bubbleHeight = description == null ? 48.0 : 64.0;
     var bubbleLeft = box.left.clamp(4.0, size.width - bubbleWidth - 4);
     var bubbleTop = box.top - bubbleHeight - 7;
     if (bubbleTop < 4) {
@@ -85,10 +104,22 @@ class DetectionOverlay extends CustomPainter {
     );
     title.paint(canvas, Offset(bubbleLeft + 10, bubbleTop + 7));
     subtitle.paint(canvas, Offset(bubbleLeft + 10, bubbleTop + 27));
+    description?.paint(canvas, Offset(bubbleLeft + 10, bubbleTop + 43));
+  }
+
+  String _subtitle(Detection detection) {
+    final state = switch (detection.enrichmentState) {
+      EnrichmentState.pending => ' · 云端识别中',
+      EnrichmentState.enriched => ' · 已云端增强',
+      EnrichmentState.failed => ' · 云端失败',
+      EnrichmentState.local => '',
+    };
+    return '$sourceName · ${detection.label}$state';
   }
 
   @override
   bool shouldRepaint(covariant DetectionOverlay oldDelegate) {
-    return oldDelegate.detections != detections;
+    return oldDelegate.detections != detections ||
+        oldDelegate.sourceName != sourceName;
   }
 }
