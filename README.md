@@ -82,8 +82,8 @@ tools/convert_mnn_model.sh
 
 ## 云端识别
 
-App 没有配置云端地址时使用带明确文案的 Mock，仍可验证追踪和状态流转。启动真实
-代理及环境变量说明见 `server/README.md`。连接方式：
+云端模式必须连接真实代理，不再提供 Mock 回退。启动代理及环境变量说明见
+`server/README.md`。连接方式：
 
 ```bash
 fvm flutter run \
@@ -91,17 +91,18 @@ fvm flutter run \
   --dart-define=CLOUD_CLIENT_TOKEN=<token>
 ```
 
-密钥只配置在 FastAPI 服务端，不能写入 App。云端模式进入前会显示上传说明；
+VLM 密钥只配置在 FastAPI 服务端，不能写入 App。云端模式进入前会显示上传说明；
 当前实现上传的仅是稳定检测框加少量边距后的 JPEG 裁剪图。USB 真机联调建议通过
 `adb reverse tcp:8000 tcp:8000` 访问 WSL 本地代理，具体步骤见 `server/README.md`。
-仓库不内置任何云端上游地址；启用真实云端模式前必须自行配置并确认供应商的数据
-处理条款。`CLOUD_CLIENT_TOKEN` 只用于本地联调且会进入 App 构建产物，不能替代
-生产环境的用户鉴权和短期令牌。
+仓库不内置任何云端上游地址；缺少 `CLOUD_API_BASE_URL` 或
+`CLOUD_CLIENT_TOKEN` 时云端页面会明确显示初始化错误。启用真实云端模式前必须
+自行配置并确认供应商的数据处理条款。`CLOUD_CLIENT_TOKEN` 会进入 App 构建产物，
+只适合受控的内部预研。
 
 ## 已知边界
 
 - YOLOv8n 当前是通用 COCO 模型，不包含业务定制类别。
-- 云端识别需要结合实际供应商补齐限流、审计、数据留存和成本告警。
+- 云端代理使用单进程内存限流和共享客户端令牌，适合少量内部试用，不面向正式用户。
 - 当前 MNN 入口以 CPU 为首轮公平对照，OpenCL 开关已在引擎和 Native 层预留，
   应在 CPU 数据稳定后单独测试。
 - 尚需积累多机型的性能、功耗、温升、长时间稳定性和识别效果数据。

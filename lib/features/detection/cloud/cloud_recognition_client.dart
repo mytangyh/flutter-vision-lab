@@ -40,43 +40,40 @@ abstract interface class CloudRecognitionClient {
   static CloudRecognitionClient fromEnvironment() {
     const baseUrl = String.fromEnvironment('CLOUD_API_BASE_URL');
     const clientToken = String.fromEnvironment('CLOUD_CLIENT_TOKEN');
-    const useMock = bool.fromEnvironment('CLOUD_USE_MOCK');
-    if (useMock || baseUrl.isEmpty) {
-      return const MockCloudRecognitionClient();
-    }
-    if (clientToken.isEmpty) {
-      throw StateError(
-        'CLOUD_CLIENT_TOKEN is required when CLOUD_API_BASE_URL is set.',
-      );
-    }
-    return HttpCloudRecognitionClient(
+    return CloudRecognitionClient.fromConfiguration(
       baseUrl: baseUrl,
       clientToken: clientToken,
     );
   }
-}
 
-class MockCloudRecognitionClient implements CloudRecognitionClient {
-  const MockCloudRecognitionClient();
-
-  @override
-  Future<CloudRecognition> recognize({
-    required CameraFrame frame,
-    required Detection detection,
-  }) async {
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    return CloudRecognition(
-      name: '${detection.displayName}（模拟精识别）',
-      brand: null,
-      description: '云端接口未配置，当前为 Mock 返回',
-      provider: 'mock',
-      model: 'mock-vlm',
-      latencyMs: 350,
+  static CloudRecognitionClient fromConfiguration({
+    required String baseUrl,
+    required String clientToken,
+    http.Client? client,
+  }) {
+    final normalizedBaseUrl = baseUrl.trim().replaceFirst(RegExp(r'/$'), '');
+    if (normalizedBaseUrl.isEmpty) {
+      throw StateError(
+        'CLOUD_API_BASE_URL is required for cloud recognition.',
+      );
+    }
+    if (clientToken.isEmpty || clientToken != clientToken.trim()) {
+      throw StateError(
+        'CLOUD_CLIENT_TOKEN is required for cloud recognition.',
+      );
+    }
+    final uri = Uri.tryParse(normalizedBaseUrl);
+    if (uri == null ||
+        !uri.hasAuthority ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      throw FormatException('CLOUD_API_BASE_URL must be an HTTP(S) URL.');
+    }
+    return HttpCloudRecognitionClient(
+      baseUrl: normalizedBaseUrl,
+      clientToken: clientToken,
+      client: client,
     );
   }
-
-  @override
-  void close() {}
 }
 
 class HttpCloudRecognitionClient implements CloudRecognitionClient {
