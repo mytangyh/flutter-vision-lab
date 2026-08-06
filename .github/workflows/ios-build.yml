@@ -1,0 +1,91 @@
+name: iOS unsigned build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/ios-build.yml
+      - .fvmrc
+      - assets/**
+      - ios/**
+      - lib/**
+      - pubspec.yaml
+      - pubspec.lock
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-unsigned-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      FLUTTER_VERSION: 3.27.4
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Install Flutter
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "$FLUTTER_VERSION" \
+            https://github.com/flutter/flutter.git \
+            "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+
+      - name: Show toolchain versions
+        run: |
+          set -euo pipefail
+          flutter --version
+          xcodebuild -version
+          pod --version
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          flutter config --no-analytics
+          flutter pub get
+          cd ios
+          pod install
+
+      - name: Build iOS app without signing
+        run: |
+          set -euo pipefail
+          flutter build ios \
+            --release \
+            --no-codesign \
+            --build-number="$GITHUB_RUN_NUMBER"
+
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          app_path="build/ios/iphoneos/Runner.app"
+          package_root="$RUNNER_TEMP/unsigned-ipa"
+          output_dir="build/ios/ipa"
+          ipa_path="$output_dir/flutter-vision-lab-ios-unsigned.ipa"
+
+          test -d "$app_path"
+          mkdir -p "$package_root/Payload" "$output_dir"
+          ditto "$app_path" "$package_root/Payload/Runner.app"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$package_root/Payload" \
+            "$ipa_path"
+          shasum -a 256 "$ipa_path" > "$ipa_path.sha256"
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: flutter-vision-lab-ios-unsigned-${{ github.run_number }}
+          path: |
+            build/ios/ipa/*.ipa
+            build/ios/ipa/*.sha256
+          if-no-files-found: error
+          retention-days: 7
