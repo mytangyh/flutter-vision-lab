@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:aicamera/features/camera/camera_detection_page.dart';
 import 'package:aicamera/features/detection/cloud/cloud_enriched_detector.dart';
 import 'package:aicamera/features/detection/domain/detection_engine.dart';
 import 'package:aicamera/features/detection/mlkit/mlkit_detector.dart';
 import 'package:aicamera/features/detection/mnn/mnn_detector.dart';
 import 'package:aicamera/features/detection/yolo/yolo_detector.dart';
+import 'package:aicamera/platform/app_platform.dart';
 import 'package:aicamera/platform/platform_info.dart';
 import 'package:flutter/material.dart';
 
@@ -34,27 +33,26 @@ class _ResearchHomePageState extends State<ResearchHomePage> {
       subtitle: 'MNN 3.5 · CPU',
       description: '使用官方 MNN Native API 和同一份 YOLO 模型，比较端侧推理效率。',
       iconName: 'speed',
-      androidOnly: true,
+      supportedPlatforms: const {AppPlatform.android},
       engineFactory: MnnDetector.new,
     ),
     DetectionProfile(
       id: 'mlkit',
       title: 'ML Kit 物体检测',
       subtitle: 'Google ML Kit · Native',
-      description: '通用物体检测与粗分类对照；Android 21–22 设备禁用。',
+      description: '通用物体检测与粗分类对照；支持 Android 23+ 和 iOS 15.5+。',
       iconName: 'auto_awesome',
       minimumAndroidSdk: 23,
       engineFactory: MlKitDetector.new,
     ),
     DetectionProfile(
-      id: 'mnn_cloud',
-      title: 'MNN + 云端精识别',
-      subtitle: 'MNN 端侧定位 · 云端 VLM',
-      description: '目标稳定后自动裁剪上传，由服务端调用 VLM 补充品牌、名称和描述。',
+      id: 'local_cloud',
+      title: '端侧 + 云端精识别',
+      subtitle: '平台端侧定位 · 云端 VLM',
+      description: 'Android 使用 MNN、iOS 使用 TFLite 定位，稳定后由云端 VLM 补充详情。',
       iconName: 'cloud',
-      androidOnly: true,
       cloudEnabled: true,
-      engineFactory: () => CloudEnrichedDetector(delegate: MnnDetector()),
+      engineFactory: _createCloudDetector,
     ),
   ];
 
@@ -86,7 +84,8 @@ class _ResearchHomePageState extends State<ResearchHomePage> {
               if (platform != null)
                 Text(
                   '${platform.manufacturer} ${platform.model} · '
-                  'Android ${platform.androidSdk} · ${platform.abi}',
+                  '${platform.operatingSystem} ${platform.systemVersion} · '
+                  '${platform.abi}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.white38, fontSize: 12),
                 ),
@@ -98,11 +97,15 @@ class _ResearchHomePageState extends State<ResearchHomePage> {
   }
 
   bool _isSupported(DetectionProfile profile, PlatformInfo? platform) {
-    if (profile.androidOnly && !Platform.isAndroid) {
+    final currentPlatform = AppPlatform.current;
+    if (!profile.supportedPlatforms.contains(currentPlatform)) {
       return false;
     }
     final minimum = profile.minimumAndroidSdk;
-    if (minimum == null || platform == null || platform.androidSdk == 0) {
+    if (currentPlatform != AppPlatform.android ||
+        minimum == null ||
+        platform == null ||
+        platform.androidSdk == 0) {
       return true;
     }
     return platform.androidSdk >= minimum;
@@ -115,8 +118,9 @@ class _ResearchHomePageState extends State<ResearchHomePage> {
     if (_isSupported(profile, platform)) {
       return null;
     }
-    if (profile.androidOnly && !Platform.isAndroid) {
-      return '当前 Native 桥仅实现 Android';
+    final currentPlatform = AppPlatform.current;
+    if (!profile.supportedPlatforms.contains(currentPlatform)) {
+      return '当前识别链路不支持 ${currentPlatform.displayName}';
     }
     return '需要 Android ${profile.minimumAndroidSdk} 或更高版本';
   }
@@ -183,7 +187,7 @@ class _ResearchHeader extends StatelessWidget {
             ),
             SizedBox(height: 8),
             Text(
-              'Flutter 3.27.4 · Android 优先 · 60 秒统一基准报告',
+              'Flutter 3.27.4 · Android / iOS · 60 秒统一基准报告',
               style: TextStyle(color: Colors.white70),
             ),
           ],
@@ -191,6 +195,15 @@ class _ResearchHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+DetectionEngine _createCloudDetector() {
+  final delegate = switch (AppPlatform.current) {
+    AppPlatform.android => MnnDetector(),
+    AppPlatform.ios => YoloDetector(),
+    _ => throw UnsupportedError('当前平台尚未配置云端识别的端侧检测器。'),
+  };
+  return CloudEnrichedDetector(delegate: delegate);
 }
 
 class _ProfileCard extends StatelessWidget {

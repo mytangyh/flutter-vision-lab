@@ -19,7 +19,7 @@ class CloudEnrichedDetector implements DetectionEngine {
   final IouTracker _tracker;
 
   @override
-  String get id => 'mnn_cloud';
+  String get id => '${delegate.id}_cloud';
 
   @override
   String get displayName => '${delegate.displayName} + Cloud VLM';

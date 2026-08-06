@@ -7,12 +7,14 @@ Flutter 相机识别技术预研 App。当前工程不把某一种推理框架�
 - YOLOv8n 320 + TFLite CPU：已验证的纯端侧基线。
 - YOLOv8n 320 + MNN 3.5 CPU：官方 Native API + Dart FFI。
 - Google ML Kit Object Detection：通用检测/粗分类对照。
-- MNN YOLO 端侧定位 + 云端 VLM：目标稳定后自动裁剪上传并补充精细名称。
+- 端侧定位 + 云端 VLM：Android 使用 MNN、iOS 使用 TFLite，稳定后自动裁剪
+  上传并补充精细名称。
 
 ## 固定基线
 
 - Flutter 固定为 `3.27.4`，Dart 为随附的 `3.6.2`。
-- Android 优先，`minSdk 21` 保持不变；ML Kit 入口在 API 21–22 禁用。
+- Android `minSdk 21` 保持不变，ML Kit 入口在 API 21–22 禁用；iOS 最低版本
+  为 `15.5`。
 - 开发环境为 WSL 命令行，不要求在 WSL 安装 Android Studio。
 - YOLO 两种引擎使用相同权重、输入尺寸、前后处理和 COCO 80 类标签。
 - 当前为技术预研 Demo，不直接承载生产业务。
@@ -62,9 +64,28 @@ fvm flutter build apk --debug --target-platform android-arm64
 ## 基准测试
 
 每个识别页面底部都可以启动 60 秒测试。前 10 帧为 warm-up，不进入延迟统计；
-报告记录设备、ABI、模型、后端、线程数、阈值、处理帧数、丢帧数、检测数以及
-预处理/推理/后处理的 mean、P50、P90、P95。报告可复制或通过 Android 分享面板
+报告记录设备、系统、ABI、模型、后端、线程数、阈值、处理帧数、丢帧数、检测数
+以及预处理/推理/后处理的 mean、P50、P90、P95。报告可复制或通过系统分享面板
 导出为 JSON。
+
+## iOS 支持
+
+iOS 首轮支持 YOLO TFLite、ML Kit 和 TFLite + 云端 VLM。MNN Native Bridge
+当前仍只在 Android 构建，iOS 页面会禁用该入口。iOS 工程使用 CocoaPods 管理
+相机、TFLite 和 ML Kit 原生依赖：
+
+```bash
+fvm flutter pub get
+cd ios
+pod install
+cd ..
+fvm flutter build ios --release --no-codesign
+```
+
+构建需要 macOS/Xcode，最低部署版本为 iOS `15.5`，Bundle ID 默认为
+`com.mytangyh.fluttervisionlab`。正式签名时需要按 Apple Developer 团队配置调整
+Bundle ID 和 Signing Team。iOS 云端识别应使用 HTTPS 服务地址；本地 HTTP 地址
+默认会被 App Transport Security 拦截。
 
 同一轮方案比较应使用同一部手机、相同画面、相同阈值，并在设备温度稳定后各跑
 至少三次。模拟器数据只能验证功能，不作为性能结论。
@@ -87,7 +108,7 @@ tools/convert_mnn_model.sh
 
 ```bash
 fvm flutter run \
-  --dart-define=CLOUD_API_BASE_URL=http://<server-ip>:8000 \
+  --dart-define=CLOUD_API_BASE_URL=https://<server-domain> \
   --dart-define=CLOUD_CLIENT_TOKEN=<token>
 ```
 

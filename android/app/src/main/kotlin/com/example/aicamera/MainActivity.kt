@@ -18,6 +18,8 @@ class MainActivity : FlutterActivity() {
                     mapOf(
                         "manufacturer" to Build.MANUFACTURER,
                         "model" to Build.MODEL,
+                        "operatingSystem" to "Android",
+                        "systemVersion" to Build.VERSION.RELEASE,
                         "androidSdk" to Build.VERSION.SDK_INT,
                         "abi" to Build.SUPPORTED_ABIS.firstOrNull().orEmpty(),
                     ),

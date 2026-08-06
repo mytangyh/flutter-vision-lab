@@ -1,5 +1,6 @@
 import 'package:aicamera/features/detection/domain/camera_frame.dart';
 import 'package:aicamera/features/detection/domain/detection.dart';
+import 'package:aicamera/platform/app_platform.dart';
 
 abstract interface class DetectionEngine {
   String get id;
@@ -26,8 +27,11 @@ class DetectionProfile {
     required this.description,
     required this.iconName,
     required this.engineFactory,
+    this.supportedPlatforms = const {
+      AppPlatform.android,
+      AppPlatform.ios,
+    },
     this.minimumAndroidSdk,
-    this.androidOnly = false,
     this.cloudEnabled = false,
   });
 
@@ -37,7 +41,7 @@ class DetectionProfile {
   final String description;
   final String iconName;
   final DetectionEngineFactory engineFactory;
+  final Set<AppPlatform> supportedPlatforms;
   final int? minimumAndroidSdk;
-  final bool androidOnly;
   final bool cloudEnabled;
 }

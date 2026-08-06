@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>AR 相机识别</string>
+	<string>Flutter Vision Lab</string>
 	<key>NSCameraUsageDescription</key>
 	<string>用于在本机实时识别摄像头画面中的物体</string>
 	<key>CFBundleExecutable</key>

@@ -92,9 +92,7 @@ class _CameraDetectionPageState extends State<CameraDetectionPage>
         camera,
         ResolutionPreset.medium,
         enableAudio: false,
-        imageFormatGroup: Platform.isAndroid
-            ? ImageFormatGroup.nv21
-            : ImageFormatGroup.bgra8888,
+        imageFormatGroup: _preferredImageFormat,
       );
       pendingController = controller;
       await controller.initialize();
@@ -405,6 +403,12 @@ class _CameraDetectionPageState extends State<CameraDetectionPage>
       'CameraAccessRestricted' => '当前设备限制了摄像头访问。',
       _ => '摄像头错误（${error.code}）：${error.description ?? '未知错误'}',
     };
+  }
+
+  static ImageFormatGroup get _preferredImageFormat {
+    if (Platform.isAndroid) return ImageFormatGroup.nv21;
+    if (Platform.isIOS) return ImageFormatGroup.bgra8888;
+    return ImageFormatGroup.yuv420;
   }
 }
 
