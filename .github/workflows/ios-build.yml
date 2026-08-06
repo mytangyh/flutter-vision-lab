@@ -52,6 +52,7 @@ jobs:
         run: |
           set -euo pipefail
           flutter config --no-analytics
+          flutter precache --ios
           flutter pub get
           cd ios
           pod install
